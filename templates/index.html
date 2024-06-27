@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Camera Feed</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #video {
+            display: none;
+        }
+
+        #canvas {
+            border: 5px solid black;
+            display: none;
+
+        }
+        #result{
+            position: sticky;
+        }
+    </style>
+</head>
+<body>
+    <video id="video" width="1024" height="768" autoplay></video>
+    <canvas id="canvas" width="1024" height="768" style="display:none;"></canvas>
+    <div id="results"></div>
+
+
+    <script>
+    var canvas = document.getElementById('canvas');
+    var context = canvas.getContext('2d');
+    var video = document.getElementById('video');
+    // Mengambil akses kamera
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(function(stream) {
+            video.srcObject = stream;
+            video.play();
+        })
+        .catch(function(err) {
+            console.error('Error accessing camera: ', err);
+        });
+
+    // Mengambil gambar dari video dan kirim ke server
+    video.addEventListener('play', function() {
+        const fps = 5; // Frames per second
+        setInterval(() => {
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            var imageData = canvas.toDataURL('image/jpeg');
+
+            // Kirim data gambar ke server Flask
+            $.ajax({
+                type: 'POST',
+                url: '/process_image',
+                data: JSON.stringify({ image_data: imageData }),
+                contentType: 'application/json',
+                success: function(response) {
+                    console.log('Response from server:', response);
+                    // Tampilkan hasil 
+                    // Buat elemen gambar baru untuk menampilkan hasil dari server
+                    var img = new Image();
+                    img.onload = function() {
+                        // Setelah gambar dimuat, gambar ke canvas
+                        context.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    };
+                    img.src = 'data:image/jpeg;base64,' + response.result;
+
+                    document.getElementById('results').innerHTML = '<img src="data:image/jpeg;base64,' + response.result + '" />';
+                    },
+                    error: function(err) {
+                        console.error('Error:', err);
+                    }
+            });
+        }, 1000 / fps);
+    });
+    </script>
+</body>
+</html>
